@@ -5,7 +5,13 @@ let decadeFilter = "all";
 let searchQuery = "";
 let watchlist = JSON.parse(localStorage.getItem("movie_watchlist")) || [];
 
-// Constants
+// Phase 2 User Profile state
+let userProfile = JSON.parse(localStorage.getItem("cinematch_user_profile")) || null;
+let onboardDirectors = [];
+let onboardVibes = [];
+let onboardPacing = "balanced";
+
+// Constant mood categories mappings
 const VIBE_MAPPINGS = {
   "action-thrill": { genres: ["Action", "Thriller", "Adventure"], keywords: ["heist", "vigilante", "gunfights", "chaos", "chase"] },
   "thought-provoking": { genres: ["Sci-Fi", "Drama", "Mystery"], keywords: ["space", "dystopia", "existential", "linguistics", "mind-bending"] },
@@ -30,37 +36,53 @@ function calculateSimilarity(movieA, movieB) {
 
   // 3. Rating Proximity (Weight: 10%)
   const ratingDiff = Math.abs(movieA.rating - movieB.rating);
-  const ratingScore = Math.max(0, 1 - (ratingDiff / 3.0)); // Highly similar if within 3 points
+  const ratingScore = Math.max(0, 1 - (ratingDiff / 3.0));
 
   // 4. Year/Era Proximity (Weight: 10%)
   const yearDiff = Math.abs(movieA.year - movieB.year);
-  const yearScore = Math.max(0, 1 - (yearDiff / 20.0)); // Highly similar if within 20 years
+  const yearScore = Math.max(0, 1 - (yearDiff / 20.0));
 
   return (genreScore * 0.4) + (keywordScore * 0.4) + (ratingScore * 0.1) + (yearScore * 0.1);
 }
 
 // Calculate similarity between a movie and a custom user profile vector
 function calculateProfileSimilarity(movie, profile) {
-  // Profile contains: genres (array), keywords (array), minRating (number), era (string)
+  // Profile contains: genres (array), keywords (array), minRating (number), directors (array), pacing (string)
   
-  // Genre Match
+  // 1. Genre Match (Weight: 30%)
   let genreScore = 0;
-  if (profile.genres.length > 0) {
+  if (profile.genres && profile.genres.length > 0) {
     const matched = movie.genres.filter(g => profile.genres.includes(g)).length;
     genreScore = matched / profile.genres.length;
   }
 
-  // Keyword Match
+  // 2. Keyword/Vibe Match (Weight: 30%)
   let keywordScore = 0;
-  if (profile.keywords.length > 0) {
+  if (profile.keywords && profile.keywords.length > 0) {
     const matched = movie.keywords.filter(k => profile.keywords.includes(k)).length;
     keywordScore = matched / profile.keywords.length;
   }
 
-  // Rating Match (Multiplier)
-  const ratingMatch = movie.rating >= profile.minRating ? 1.0 : (movie.rating / profile.minRating);
+  // 3. Director Match (Weight: 20%)
+  let directorScore = 0;
+  if (profile.directors && profile.directors.length > 0) {
+    directorScore = profile.directors.includes(movie.director) ? 1.0 : 0.0;
+  }
 
-  return (genreScore * 0.5) + (keywordScore * 0.3) + (ratingMatch * 0.2);
+  // 4. Pacing Proximity (Weight: 20%)
+  let pacingScore = 0;
+  if (profile.pacing && movie.pacing) {
+    if (profile.pacing === movie.pacing) {
+      pacingScore = 1.0;
+    } else if (
+      (profile.pacing === "balanced" && (movie.pacing === "slow-burn" || movie.pacing === "fast-paced")) ||
+      (movie.pacing === "balanced" && (profile.pacing === "slow-burn" || profile.pacing === "fast-paced"))
+    ) {
+      pacingScore = 0.5; // Moderately similar pacing
+    }
+  }
+
+  return (genreScore * 0.3) + (keywordScore * 0.3) + (directorScore * 0.2) + (pacingScore * 0.2);
 }
 
 // Get recommendations for a specific movie
@@ -82,10 +104,24 @@ document.addEventListener("DOMContentLoaded", () => {
   renderWatchlist();
   setupEventListeners();
   
-  // Initial slide in intro
+  // Slide-in hero banner transition
   const hero = document.querySelector(".hero-banner");
   if (hero) hero.style.opacity = "1";
+
+  // Check Onboarding state
+  checkOnboardingState();
 });
+
+// Check if onboarding is complete
+function checkOnboardingState() {
+  if (!userProfile) {
+    // Open onboarding modal automatically
+    openOnboardingWizard();
+  } else {
+    updatePersonalizedRecommendations();
+    updateTasteDashboardCard();
+  }
+}
 
 // Setup Event Listeners
 function setupEventListeners() {
@@ -126,7 +162,7 @@ function setupEventListeners() {
       btn.classList.add("active");
       generateVibeRecommendations(btn.dataset.vibe);
     });
-  } );
+  });
 
   // Close Modal
   const closeModal = document.querySelector(".modal-close");
@@ -136,11 +172,29 @@ function setupEventListeners() {
       modal.classList.remove("active");
       document.body.style.overflow = "auto";
     });
-    // Click outside modal
     modal.addEventListener("click", (e) => {
       if (e.target === modal) {
         modal.classList.remove("active");
         document.body.style.overflow = "auto";
+      }
+    });
+  }
+
+  // Pacing Onboarding slider listener
+  const wizardPacingSlider = document.getElementById("wizard-pacing-slider");
+  const pacingDesc = document.getElementById("pacing-slider-desc");
+  if (wizardPacingSlider && pacingDesc) {
+    wizardPacingSlider.addEventListener("input", (e) => {
+      const val = parseInt(e.target.value);
+      if (val === 1) {
+        onboardPacing = "slow-burn";
+        pacingDesc.textContent = "You enjoy rich, atmospheric slow burns with deep character arcs, cinematic patience, and subtle storytelling.";
+      } else if (val === 2) {
+        onboardPacing = "balanced";
+        pacingDesc.textContent = "You enjoy balanced storytelling that blends rich character depth with engaging plot momentum.";
+      } else if (val === 3) {
+        onboardPacing = "fast-paced";
+        pacingDesc.textContent = "You enjoy high-adrenaline, fast-paced plots with active scenes, punchy progression, and instant momentum.";
       }
     });
   }
@@ -182,23 +236,19 @@ function renderMoviesList() {
   grid.innerHTML = "";
 
   const filteredMovies = MOVIES_DATA.filter(movie => {
-    // 1. Genre filter
     if (selectedGenres.length > 0) {
       const hasAllGenres = selectedGenres.every(g => movie.genres.includes(g));
       if (!hasAllGenres) return false;
     }
 
-    // 2. Rating filter
     if (movie.rating < ratingFilter) return false;
 
-    // 3. Decade filter
     if (decadeFilter !== "all") {
       const startYear = parseInt(decadeFilter);
       const endYear = startYear + 9;
       if (movie.year < startYear || movie.year > endYear) return false;
     }
 
-    // 4. Text search
     if (searchQuery.trim() !== "") {
       const matchTitle = movie.title.toLowerCase().includes(searchQuery);
       const matchDirector = movie.director.toLowerCase().includes(searchQuery);
@@ -212,7 +262,6 @@ function renderMoviesList() {
   if (filteredMovies.length === 0) {
     grid.innerHTML = `
       <div class="no-results">
-        <i class="icon-film"></i>
         <h3>No Movies Found</h3>
         <p>Try adjusting your search filters or tags to discover more cinematic gems!</p>
       </div>
@@ -226,7 +275,7 @@ function renderMoviesList() {
   });
 }
 
-// Create a Movie Card DOM Element
+// Create Movie Card
 function createMovieCard(movie) {
   const isBookmarked = watchlist.some(m => m.id === movie.id);
   const card = document.createElement("div");
@@ -260,7 +309,7 @@ function createMovieCard(movie) {
   return card;
 }
 
-// Generate vibe based recommendations
+// Generate mood vibe recommendations
 function generateVibeRecommendations(vibeKey) {
   const vibe = VIBE_MAPPINGS[vibeKey];
   if (!vibe) return;
@@ -300,7 +349,7 @@ function generateVibeRecommendations(vibeKey) {
   recommendationSection.scrollIntoView({ behavior: "smooth" });
 }
 
-// Watchlist Toggle
+// Watchlist toggle
 window.toggleWatchlist = function(event, movieId) {
   event.stopPropagation();
   const movie = MOVIES_DATA.find(m => m.id === movieId);
@@ -315,9 +364,11 @@ window.toggleWatchlist = function(event, movieId) {
 
   localStorage.setItem("movie_watchlist", JSON.stringify(watchlist));
   
-  // Re-render
+  // Re-render components
   renderMoviesList();
   renderWatchlist();
+  updateTasteDashboardCard();
+  updatePersonalizedRecommendations();
 };
 
 // Render Watchlist Panel
@@ -365,7 +416,6 @@ window.openMovieDetails = function(movieId) {
   const modal = document.getElementById("movie-modal");
   if (!modal) return;
 
-  // Content population
   document.getElementById("modal-poster").src = movie.poster;
   document.getElementById("modal-title").textContent = movie.title;
   document.getElementById("modal-meta").innerHTML = `
@@ -382,13 +432,11 @@ window.openMovieDetails = function(movieId) {
   document.getElementById("modal-director").textContent = movie.director;
   document.getElementById("modal-cast").textContent = movie.cast.join(", ");
 
-  // Populate Keywords
   const keywordsContainer = document.getElementById("modal-keywords");
   if (keywordsContainer) {
     keywordsContainer.innerHTML = movie.keywords.map(k => `<span class="keyword-tag">#${k}</span>`).join("");
   }
 
-  // Populate Similar Movies
   const similarContainer = document.getElementById("similar-movies-grid");
   if (similarContainer) {
     similarContainer.innerHTML = "";
@@ -411,7 +459,265 @@ window.openMovieDetails = function(movieId) {
     });
   }
 
-  // Open Modal
   modal.classList.add("active");
   document.body.style.overflow = "hidden";
 };
+
+// ================= PHASE 2: TASTE TEST WIZARD =================
+
+// Open Onboarding Wizard Modal
+window.openOnboardingWizard = function() {
+  const wizard = document.getElementById("onboarding-modal");
+  if (!wizard) return;
+
+  // Reset selections
+  onboardDirectors = [];
+  onboardVibes = [];
+  onboardPacing = "balanced";
+  
+  // Reset choice cards styles
+  document.querySelectorAll(".choice-card").forEach(c => c.classList.remove("selected"));
+  document.querySelectorAll(".select-tag-card").forEach(c => c.classList.remove("selected"));
+  
+  const slider = document.getElementById("wizard-pacing-slider");
+  if (slider) slider.value = 2;
+  
+  const pacingDesc = document.getElementById("pacing-slider-desc");
+  if (pacingDesc) pacingDesc.textContent = "You enjoy balanced storytelling that blends rich character depth with engaging plot momentum.";
+
+  // Show step 1
+  nextWizardStep(1);
+  
+  wizard.classList.add("active");
+  document.body.style.overflow = "hidden";
+};
+
+// Navigate steps in wizard
+window.nextWizardStep = function(stepNum) {
+  document.querySelectorAll(".wizard-step").forEach(step => {
+    step.classList.remove("active");
+  });
+  const activeStep = document.getElementById(`step-${stepNum}`);
+  if (activeStep) activeStep.classList.add("active");
+};
+
+// Toggle director selection card
+window.toggleDirectorSelection = function(cardElement, directorName) {
+  if (onboardDirectors.includes(directorName)) {
+    onboardDirectors = onboardDirectors.filter(d => d !== directorName);
+    cardElement.classList.remove("selected");
+  } else {
+    onboardDirectors.push(directorName);
+    cardElement.classList.add("selected");
+  }
+};
+
+// Toggle vibe tag card
+window.toggleVibeTagSelection = function(cardElement, vibeTag) {
+  if (onboardVibes.includes(vibeTag)) {
+    onboardVibes = onboardVibes.filter(v => v !== vibeTag);
+    cardElement.classList.remove("selected");
+  } else {
+    onboardVibes.push(vibeTag);
+    cardElement.classList.add("selected");
+  }
+};
+
+// Complete Taste Test Onboarding
+window.completeOnboardingWizard = function() {
+  // Aggregate selections into a userProfile vector
+  
+  // Map onboarding vibes to genres & keywords
+  let genres = [];
+  let keywords = [];
+
+  onboardVibes.forEach(v => {
+    if (v === "mind-bending") {
+      genres.push("Sci-Fi", "Mystery", "Thriller");
+      keywords.push("dreams", "reality", "time", "mind-bending");
+    } else if (v === "visual-masterpiece") {
+      genres.push("Animation", "Adventure", "Fantasy");
+      keywords.push("studio-ghibli", "magic", "aesthetic", "neon", "visual-masterpiece");
+    } else if (v === "gritty-dark") {
+      genres.push("Action", "Crime", "Thriller", "Horror");
+      keywords.push("vigilante", "joker", "serial-killer", "obsession", "dark-comedy", "suspense");
+    } else if (v === "heartwarming") {
+      genres.push("Comedy", "Animation", "Romance", "Music");
+      keywords.push("magic", "quirky", "growing-up", "friendship");
+    } else if (v === "social-commentary") {
+      genres.push("Drama", "Comedy", "Crime");
+      keywords.push("social-commentary", "class-struggle", "dark-comedy", "con-artists", "family-drama");
+    }
+  });
+
+  // Unique elements
+  genres = [...new Set(genres)];
+  keywords = [...new Set(keywords)];
+
+  userProfile = {
+    directors: onboardDirectors,
+    vibes: onboardVibes,
+    genres: genres,
+    keywords: keywords,
+    pacing: onboardPacing
+  };
+
+  localStorage.setItem("cinematch_user_profile", JSON.stringify(userProfile));
+
+  // Close wizard modal
+  const wizard = document.getElementById("onboarding-modal");
+  if (wizard) wizard.classList.remove("active");
+  document.body.style.overflow = "auto";
+
+  // Re-compute recommendation panels
+  updatePersonalizedRecommendations();
+  updateTasteDashboardCard();
+};
+
+// Dynamic Taste Dashboard calculations
+function updateTasteDashboardCard() {
+  const card = document.getElementById("taste-dashboard-card");
+  if (!card || !userProfile) return;
+
+  card.style.display = "flex";
+
+  // 1. Determine dominat cinematic taste signature
+  let signature = "The Classic Cinephile";
+  const containsNolan = userProfile.directors.includes("Christopher Nolan");
+  const containsMiyazaki = userProfile.directors.includes("Hayao Miyazaki");
+  const containsTarantino = userProfile.directors.includes("Quentin Tarantino");
+  const containsVilleneuve = userProfile.directors.includes("Denis Villeneuve");
+
+  if (containsNolan && userProfile.vibes.includes("mind-bending")) {
+    signature = "Intellectual Dreamer";
+  } else if (containsVilleneuve && userProfile.pacing === "slow-burn") {
+    signature = "Atmospheric Visionary";
+  } else if (containsMiyazaki && userProfile.vibes.includes("heartwarming")) {
+    signature = "Whimsical Wanderer";
+  } else if (containsTarantino && userProfile.vibes.includes("gritty-dark")) {
+    signature = "Stylized Storyteller";
+  } else if (userProfile.vibes.includes("mind-bending")) {
+    signature = "Dimension Traveler";
+  } else if (userProfile.pacing === "slow-burn") {
+    signature = "Patient Cinephile";
+  } else if (userProfile.pacing === "fast-paced") {
+    signature = "Adrenaline Cinephile";
+  }
+
+  document.getElementById("taste-signature").textContent = signature;
+
+  // 2. Favorite Director Display
+  const directorSpan = document.getElementById("dash-director");
+  if (userProfile.directors.length > 0) {
+    directorSpan.textContent = userProfile.directors[0];
+  } else {
+    directorSpan.textContent = "Diverse Taste";
+  }
+
+  // 3. Pacing Display
+  const pacingSpan = document.getElementById("dash-pacing");
+  pacingSpan.textContent = userProfile.pacing.replace("-", " ");
+
+  // 4. Genre Affinity calculations backed by Watchlist
+  const genreCount = {};
+  
+  // Bootstrap genre weights from Onboarding profile
+  userProfile.genres.forEach(g => {
+    genreCount[g] = (genreCount[g] || 0) + 1;
+  });
+
+  // Feedback loop: Inject weight from Watchlist items!
+  watchlist.forEach(movie => {
+    movie.genres.forEach(g => {
+      genreCount[g] = (genreCount[g] || 0) + 3; // Triple weighting for explicit bookmarks!
+    });
+  });
+
+  // Find top genre
+  let topGenre = "-";
+  let maxWeight = 0;
+  let totalWeight = 0;
+
+  for (const [genre, weight] of Object.entries(genreCount)) {
+    totalWeight += weight;
+    if (weight > maxWeight) {
+      maxWeight = weight;
+      topGenre = genre;
+    }
+  }
+
+  const affinityGenre = document.getElementById("dash-genre");
+  const affinityBar = document.getElementById("dash-genre-bar");
+
+  if (topGenre !== "-") {
+    affinityGenre.textContent = topGenre;
+    const percentage = totalWeight > 0 ? Math.round((maxWeight / totalWeight) * 100) : 0;
+    affinityBar.style.width = `${percentage}%`;
+  } else {
+    affinityGenre.textContent = "Discovering...";
+    affinityBar.style.width = "10%";
+  }
+}
+
+// Update Tailored recommendations block
+function updatePersonalizedRecommendations() {
+  const section = document.getElementById("tailored-section");
+  const grid = document.getElementById("tailored-movies-grid");
+  
+  if (!section || !grid) return;
+  if (!userProfile) {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+  grid.innerHTML = "";
+
+  // Combine User Profile with Watchlist categories to make a dynamic search profile
+  const dynamicProfile = {
+    genres: [...userProfile.genres],
+    keywords: [...userProfile.keywords],
+    directors: [...userProfile.directors],
+    pacing: userProfile.pacing,
+    minRating: 7.0
+  };
+
+  // Add keywords & genres from watchlist to dynamic feedback profile
+  watchlist.forEach(m => {
+    dynamicProfile.genres.push(...m.genres);
+    dynamicProfile.keywords.push(...m.keywords);
+    dynamicProfile.directors.push(m.director);
+  });
+
+  // Make list unique
+  dynamicProfile.genres = [...new Set(dynamicProfile.genres)];
+  dynamicProfile.keywords = [...new Set(dynamicProfile.keywords)];
+  dynamicProfile.directors = [...new Set(dynamicProfile.directors)];
+
+  // Exclude movies already in Watchlist from recommendations to ensure discovery
+  const watchIds = watchlist.map(m => m.id);
+
+  const recommendations = MOVIES_DATA
+    .filter(movie => !watchIds.includes(movie.id)) // Exclude bookmarked
+    .map(movie => ({
+      movie,
+      score: calculateProfileSimilarity(movie, dynamicProfile)
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(item => item.movie);
+
+  if (recommendations.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-watchlist" style="grid-column: 1/-1;">
+        <p>We need more information! Add more movies to your watchlist to activate taste filters.</p>
+      </div>
+    `;
+    return;
+  }
+
+  recommendations.forEach(movie => {
+    const card = createMovieCard(movie);
+    grid.appendChild(card);
+  });
+}

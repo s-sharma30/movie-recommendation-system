@@ -65,6 +65,16 @@
           </select>
         </div>
       </div>
+
+      <!-- Reset & Taste Test buttons -->
+      <div class="filter-section" style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-glass);">
+        <button class="action-btn-outline" onclick="openOnboardingWizard()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; margin-right: 8px;">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+          Retake Taste Test
+        </button>
+      </div>
     </aside>
 
     <!-- Main Content Panel -->
@@ -88,6 +98,19 @@
         </div>
       </section>
 
+      <!-- Tailored For You Section (Deep recommendations using taste profiles) -->
+      <section class="tailored-section" id="tailored-section" style="display: none;">
+        <h2 class="section-title" style="border: none; display: flex; align-items: center; gap: 0.5rem;">
+          <span class="pulse-icon"></span> Tailored For You
+        </h2>
+        <p class="section-description" style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">
+          Top recommendations computed from your taste test questionnaire and watchlist trends.
+        </p>
+        <div class="movies-grid" id="tailored-movies-grid">
+          <!-- Dynamically populated personal recommendations -->
+        </div>
+      </section>
+
       <!-- Mood Recommendations Results -->
       <section class="vibe-recommendations-section" id="vibe-recommendations">
         <!-- Vibe recommendations will render here dynamically -->
@@ -102,9 +125,49 @@
       </section>
     </main>
 
-    <!-- Right Sidebar: Watchlist -->
+    <!-- Right Sidebar: Taste Dashboard & Watchlist -->
     <aside class="watchlist-panel">
-      <div class="watchlist-header">
+      <!-- Taste Dashboard Card -->
+      <div class="taste-dashboard" id="taste-dashboard-card" style="display: none;">
+        <div class="taste-header">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            <path d="M2 12h20"></path>
+          </svg>
+          <h3>Your Taste Profile</h3>
+        </div>
+        <div class="taste-body">
+          <div class="signature-badge" id="taste-signature">Determining taste...</div>
+          
+          <div class="dashboard-metric">
+            <div class="metric-label">
+              <span>Favorite Director</span>
+              <strong id="dash-director">-</strong>
+            </div>
+          </div>
+          
+          <div class="dashboard-metric">
+            <div class="metric-label">
+              <span>Pacing Preference</span>
+              <strong id="dash-pacing">-</strong>
+            </div>
+          </div>
+          
+          <div class="dashboard-metric">
+            <div class="metric-label">
+              <span>Top Genre affinity</span>
+              <strong id="dash-genre">-</strong>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="dash-genre-bar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Watchlist -->
+      <div class="watchlist-header" style="margin-top: 1rem;">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
         </svg>
@@ -114,6 +177,104 @@
         <!-- Watchlist items will load dynamically -->
       </div>
     </aside>
+  </div>
+
+  <!-- Interactive Onboarding Taste Test Wizard Modal -->
+  <div class="modal" id="onboarding-modal">
+    <div class="modal-content onboarding-content">
+      <!-- Step 1: Director Preferences -->
+      <div class="wizard-step active" id="step-1">
+        <div class="wizard-header">
+          <span class="step-num">Step 1 of 3</span>
+          <h2>Select your favorite directors</h2>
+          <p class="wizard-desc">We use your favorite creators to bootstrap your visual style and storytelling preferences.</p>
+        </div>
+        <div class="onboard-grid">
+          <div class="choice-card" onclick="toggleDirectorSelection(this, 'Christopher Nolan')">
+            <img src="https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&w=400&q=80" alt="Christopher Nolan">
+            <div class="choice-title">Christopher Nolan</div>
+            <div class="choice-subtitle">Mind-bending plots, epic visuals</div>
+          </div>
+          <div class="choice-card" onclick="toggleDirectorSelection(this, 'Quentin Tarantino')">
+            <img src="https://images.unsplash.com/photo-1594909122845-11baa439b7bf?auto=format&fit=crop&w=400&q=80" alt="Quentin Tarantino">
+            <div class="choice-title">Quentin Tarantino</div>
+            <div class="choice-subtitle">Sharp dialogue, stylized action</div>
+          </div>
+          <div class="choice-card" onclick="toggleDirectorSelection(this, 'Denis Villeneuve')">
+            <img src="https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=400&q=80" alt="Denis Villeneuve">
+            <div class="choice-title">Denis Villeneuve</div>
+            <div class="choice-subtitle">Atmospheric sci-fi, dark themes</div>
+          </div>
+          <div class="choice-card" onclick="toggleDirectorSelection(this, 'Hayao Miyazaki')">
+            <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=400&q=80" alt="Hayao Miyazaki">
+            <div class="choice-title">Hayao Miyazaki</div>
+            <div class="choice-subtitle">Whimsical animation, rich fantasy</div>
+          </div>
+        </div>
+        <div class="wizard-footer">
+          <button class="action-btn" onclick="nextWizardStep(2)">Next Step</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Narrative Vibe Tags -->
+      <div class="wizard-step" id="step-2">
+        <div class="wizard-header">
+          <span class="step-num">Step 2 of 3</span>
+          <h2>What kind of stories captivate you?</h2>
+          <p class="wizard-desc">Select the themes and narrative directions you lean towards most.</p>
+        </div>
+        <div class="tags-selector-grid">
+          <div class="select-tag-card" onclick="toggleVibeTagSelection(this, 'mind-bending')">
+            <h3>Mind-Bending</h3>
+            <p>Reality-shifting, complex timelines, intellectual puzzles</p>
+          </div>
+          <div class="select-tag-card" onclick="toggleVibeTagSelection(this, 'visual-masterpiece')">
+            <h3>Visual Masterpiece</h3>
+            <p>Stunning cinematography, vivid colors, rich atmospheres</p>
+          </div>
+          <div class="select-tag-card" onclick="toggleVibeTagSelection(this, 'gritty-dark')">
+            <h3>Gritty & Dark</h3>
+            <p>Intense suspense, moral ambiguity, deep conflict</p>
+          </div>
+          <div class="select-tag-card" onclick="toggleVibeTagSelection(this, 'heartwarming')">
+            <h3>Heartwarming</h3>
+            <p>Whimsical journeys, deep bonds, positive vibes</p>
+          </div>
+          <div class="select-tag-card" onclick="toggleVibeTagSelection(this, 'social-commentary')">
+            <h3>Social Commentary</h3>
+            <p>Thoughtful critique, human relationships, class struggles</p>
+          </div>
+        </div>
+        <div class="wizard-footer">
+          <button class="action-btn-outline" onclick="nextWizardStep(1)">Back</button>
+          <button class="action-btn" onclick="nextWizardStep(3)">Next Step</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Pacing Preferences -->
+      <div class="wizard-step" id="step-3">
+        <div class="wizard-header">
+          <span class="step-num">Step 3 of 3</span>
+          <h2>Select your preferred movie pacing</h2>
+          <p class="wizard-desc">Do you like intense, fast-action plots, or deep, atmospheric slow burns?</p>
+        </div>
+        <div class="pacing-slider-section">
+          <div class="pacing-slider-row">
+            <span class="pacing-label-term">🐢 Slow Burn</span>
+            <span class="pacing-label-term">⚖️ Balanced</span>
+            <span class="pacing-label-term">⚡ Fast-Paced</span>
+          </div>
+          <input type="range" id="wizard-pacing-slider" min="1" max="3" step="1" value="2" class="premium-slider">
+          <div class="pacing-description-text" id="pacing-slider-desc">
+            You enjoy balanced storytelling that blends rich character depth with engaging plot momentum.
+          </div>
+        </div>
+        <div class="wizard-footer">
+          <button class="action-btn-outline" onclick="nextWizardStep(2)">Back</button>
+          <button class="action-btn glow" onclick="completeOnboardingWizard()">Complete Taste Test</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Movie Details Modal -->
