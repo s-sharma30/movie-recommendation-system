@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CineMatch | Premium Movie Recommendation System</title>
+  <meta name="description" content="Discover personalized movie recommendations with CineMatch. Browse popular titles, filter by rating and genre, select your mood vibe, and curate your watchlist.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Left Sidebar: Filtering and Search -->
+    <aside class="sidebar">
+      <div class="logo-container">
+        <div class="logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M4 6H2v14a2 2 0 0 0 2 2h14v-2H4zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-8 12.5v-9l6 4.5z"/>
+          </svg>
+        </div>
+        <h1 class="logo-text">CineMatch</h1>
+      </div>
+
+      <!-- Search Section -->
+      <div class="filter-section">
+        <h2 class="filter-title">Search</h2>
+        <div class="search-box">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="search-input" placeholder="Title, director, keyword...">
+        </div>
+      </div>
+
+      <!-- Genres Section -->
+      <div class="filter-section">
+        <h2 class="filter-title">Genres</h2>
+        <div class="genres-grid" id="genres-container">
+          <!-- Genre pills will be loaded dynamically -->
+        </div>
+      </div>
+
+      <!-- Minimum Rating Slider -->
+      <div class="filter-section">
+        <h2 class="filter-title">Minimum Rating</h2>
+        <div class="range-slider">
+          <div class="range-labels">
+            <span>★ <span id="rating-value">7.0</span>+</span>
+            <span>10.0</span>
+          </div>
+          <input type="range" id="rating-range" min="0" max="10" step="0.5" value="7.0">
+        </div>
+      </div>
+
+      <!-- Decade Dropdown -->
+      <div class="filter-section">
+        <h2 class="filter-title">Release Era</h2>
+        <div class="select-dropdown">
+          <select id="decade-select">
+            <option value="all">All Eras</option>
+            <option value="2020">2020s</option>
+            <option value="2010">2010s</option>
+            <option value="2000">2000s</option>
+            <option value="1990">1990s</option>
+          </select>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Panel -->
+    <main class="main-content">
+      <!-- Premium Hero Mood Selector -->
+      <section class="hero-banner">
+        <div class="hero-content">
+          <span class="hero-tagline">Personalized Curation</span>
+          <h2 class="hero-title">What are you in the mood for?</h2>
+          <p class="hero-description">Select your current vibe below, and our content-based similarity engine will recommend the perfect cinematic experiences tailored exactly for your mood.</p>
+          
+          <div class="vibe-selector">
+            <div class="vibe-buttons-row">
+              <button class="vibe-btn" data-vibe="action-thrill">Action & Thrill</button>
+              <button class="vibe-btn" data-vibe="thought-provoking">Thought-Provoking</button>
+              <button class="vibe-btn" data-vibe="emotional">Emotional & Deep</button>
+              <button class="vibe-btn" data-vibe="lighthearted">Lighthearted & Magic</button>
+              <button class="vibe-btn" data-vibe="mind-bending">Mind-Bending Sci-Fi</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mood Recommendations Results -->
+      <section class="vibe-recommendations-section" id="vibe-recommendations">
+        <!-- Vibe recommendations will render here dynamically -->
+      </section>
+
+      <!-- Browse Section -->
+      <section class="browse-section">
+        <h2 class="section-title">Discover Movies</h2>
+        <div class="movies-grid" id="movies-grid">
+          <!-- All Movies will load here dynamically -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Right Sidebar: Watchlist -->
+    <aside class="watchlist-panel">
+      <div class="watchlist-header">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        <h3>Your Watchlist</h3>
+      </div>
+      <div class="watchlist-items-list" id="watchlist-items">
+        <!-- Watchlist items will load dynamically -->
+      </div>
+    </aside>
+  </div>
+
+  <!-- Movie Details Modal -->
+  <div class="modal" id="movie-modal">
+    <div class="modal-content">
+      <button class="modal-close">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <div class="modal-body">
+        <div class="modal-poster-side">
+          <img id="modal-poster" src="" alt="Movie Poster">
+        </div>
+        <div class="modal-info-side">
+          <div class="modal-title-row">
+            <h2 id="modal-title">Movie Title</h2>
+            <div id="modal-meta" class="modal-meta-row">
+              <!-- Year, duration, rating -->
+            </div>
+          </div>
+          <div class="modal-genres-row" id="modal-genres">
+            <!-- Genre tags -->
+          </div>
+          <p class="modal-description-box" id="modal-description">
+            Detailed movie plot summary goes here...
+          </p>
+          <div class="modal-specs">
+            <div class="spec-item">
+              <strong>Director</strong>
+              <span id="modal-director">Director Name</span>
+            </div>
+            <div class="spec-item">
+              <strong>Starring</strong>
+              <span id="modal-cast">Actor 1, Actor 2, Actor 3</span>
+            </div>
+          </div>
+          <div class="modal-keywords-row" id="modal-keywords">
+            <!-- Keywords list -->
+          </div>
+          
+          <!-- Similar Movies recommendations inside modal -->
+          <div class="modal-similar-section">
+            <h4>More Like This</h4>
+            <div class="similar-movies-grid" id="similar-movies-grid">
+              <!-- Similar movies recommendation items will load dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="movies.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
